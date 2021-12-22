@@ -62,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
         backgroundExecutor.submit(() -> {
             try {
                 con.connect(myIp);
+                Settings.lastIp = myIp;
                 MainActivity.this.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
