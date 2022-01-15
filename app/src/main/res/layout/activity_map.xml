@@ -17,6 +17,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center"
+        android:id="@+id/recordPanel"
         android:orientation="horizontal">
 
         <Button
@@ -37,6 +38,38 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Back" />
+        <Button
+            android:id="@+id/playBut"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Play" />
+    </androidx.appcompat.widget.LinearLayoutCompat>
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center"
+        android:id="@+id/playPanel"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/exitBut"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Exit" />
+        <Button
+            android:id="@+id/pauseBut"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Pause" />
+        <Button
+            android:id="@+id/restartBut"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Restart" />
         <Button
             android:id="@+id/startBut"
             android:layout_width="wrap_content"

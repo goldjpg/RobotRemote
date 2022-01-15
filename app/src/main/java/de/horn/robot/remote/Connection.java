@@ -5,6 +5,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import okhttp3.MediaType;
@@ -24,6 +25,7 @@ public class Connection {
     public static final MediaType JSON
             = MediaType.parse("application/json; charset=utf-8");
     int routepos;
+    List<String> robotLogMessages = new ArrayList<>();
 
     public Connection(){
         client = new OkHttpClient();
@@ -64,9 +66,23 @@ public class Connection {
         }
     }
 
-    public void startRoute() throws IOException, JSONException, ServerErrorException {
+    public void startRoute(boolean restart) throws IOException, ServerErrorException, JSONException {
+        JSONObject outJson = new JSONObject();
+        outJson.put("restart", restart);
+        RequestBody body = RequestBody.create(outJson.toString(), JSON);
         Request request = new Request.Builder()
                 .url(robotUrl + "startRoute")
+                .post(body)
+                .build();
+        Response resp = client.newCall(request).execute();
+        if(resp.code() != 200){
+            throw new ServerErrorException();
+        }
+    }
+
+    public void stopRoute() throws IOException, JSONException, ServerErrorException {
+        Request request = new Request.Builder()
+                .url(robotUrl + "stopRoute")
                 .get()
                 .build();
         Response resp = client.newCall(request).execute();
@@ -85,19 +101,25 @@ public class Connection {
             JSONObject responeObject = new JSONObject(resp.body().string());
             resp.body().close();
             routepos = responeObject.getInt("status");
+            JSONArray logArray = responeObject.getJSONArray("log");
+            for(int i=0;i<logArray.length();i++){
+                robotLogMessages.add(logArray.getString(i));
+            }
         }else{
             throw new ServerErrorException();
         }
     }
 
     public void postRoute(List<RouteElement> route) throws IOException, JSONException, ServerErrorException {
-        JSONArray outJson = new JSONArray();
+        JSONObject outJson = new JSONObject();
+        JSONArray outRoute = new JSONArray();
         for(RouteElement re:route){
             JSONArray ob = new JSONArray();
             ob.put( re.lat);
             ob.put( re.lon);
-            outJson.put(ob);
+            outRoute.put(ob);
         }
+        outJson.put("route", outRoute);
         RequestBody body = RequestBody.create(outJson.toString(), JSON);
         Request request = new Request.Builder()
                 .url(robotUrl + "setRoute")
