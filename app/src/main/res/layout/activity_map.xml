@@ -77,5 +77,19 @@
             android:layout_weight="1"
             android:text="Start" />
     </androidx.appcompat.widget.LinearLayoutCompat>
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center"
+        android:id="@+id/setOffsetPanel"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/setOffsetBut"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Finish" />
+    </androidx.appcompat.widget.LinearLayoutCompat>
 
 </FrameLayout>

@@ -58,6 +58,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private Button restartBut;
     private Button pauseBut;
     private Button exitBut;
+    private Button setOffsetBut;
     boolean recording = false;
     private Polyline planedRoute;
     private Polyline finishedRoute;
@@ -66,10 +67,13 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private boolean pendingRequest = false;
     private View recordingView;
     private View playView;
+    private View offsetView;
     private UserMode currentUiMode;
+    private Marker robotOffsetMarker = null;
+
 
     private enum UserMode{
-        editMode, playMode
+        editMode, playMode, setRobotOffset
     }
 
     @Override
@@ -86,6 +90,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         recordingView = findViewById(R.id.recordPanel);
         playView = findViewById(R.id.playPanel);
+        offsetView = findViewById(R.id.setOffsetPanel);
+
 
         recordBut = findViewById(R.id.recordBut);
         recordBut.setOnClickListener(new View.OnClickListener() {
@@ -276,16 +282,52 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 });
             }
         });
+        setOffsetBut = findViewById(R.id.setOffsetBut);
+        setOffsetBut.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                LatLng markerPos = robotOffsetMarker.getPosition();
+                double newLatOffset = markerPos.latitude - MainActivity.con.lastRobotLat;
+                double newLonOffset = markerPos.longitude - MainActivity.con.lastRobotLon;
+                MainActivity.backgroundExecutor.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            MainActivity.con.setOffset(newLatOffset, newLonOffset);
+                            MapActivity.this.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(MapActivity.this, "Offset set successfully.", Toast.LENGTH_SHORT).show();
+                                    robotOffsetMarker.setVisible(false);
+                                    setCurrentUiMode(UserMode.editMode);
+                                }
+                            });
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            MapActivity.this.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(MapActivity.this, "Failed to set offset.", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        });
         setCurrentUiMode(UserMode.editMode);
     }
 
     private void setCurrentUiMode(UserMode newMode){
         recordingView.setVisibility(View.GONE);
         playView.setVisibility(View.GONE);
+        offsetView.setVisibility(View.GONE);
         if(newMode == UserMode.editMode){
             recordingView.setVisibility(View.VISIBLE);
         }else if(newMode == UserMode.playMode){
             playView.setVisibility(View.VISIBLE);
+        }else if(newMode == UserMode.setRobotOffset){
+            offsetView.setVisibility(View.VISIBLE);
         }
         currentUiMode = newMode;
     }
@@ -300,6 +342,19 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     {
         if(item.getItemId() == R.id.action_show_log){
             startActivity(new Intent(this, LogActivity.class));
+        }else if(item.getItemId() == R.id.action_calibration_mode){
+            if(currentUiMode == UserMode.editMode && !recording && mMap != null){
+                LatLng markerPos = new LatLng(MainActivity.con.lastRobotLat + MainActivity.con.latOffset,MainActivity.con.lastRobotLon + MainActivity.con.lonOffset);
+                if(robotOffsetMarker == null){
+                    robotOffsetMarker = mMap.addMarker(new MarkerOptions().position(markerPos).draggable(true));
+                }else{
+                    robotOffsetMarker.setPosition(markerPos);
+                    robotOffsetMarker.setVisible(true);
+                }
+                setCurrentUiMode(UserMode.setRobotOffset);
+            }else{
+                Toast.makeText(MapActivity.this, "You have to be in Edit-Mode to use this feature.", Toast.LENGTH_SHORT).show();
+            }
         }else{
             return false;
         }
@@ -391,7 +446,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
         planedRoute.setPoints(plannedPoints);
         finishedRoute.setPoints(finishedPoints);
-        robot.setPosition(new LatLng(MainActivity.con.lastRobotLat, MainActivity.con.lastRobotLon));
+        if(currentUiMode != UserMode.setRobotOffset){
+            robot.setPosition(new LatLng(MainActivity.con.lastRobotLat + MainActivity.con.latOffset, MainActivity.con.lastRobotLon + MainActivity.con.lonOffset));
+        }else{
+            robot.setPosition(new LatLng(MainActivity.con.lastRobotLat, MainActivity.con.lastRobotLon));
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -408,6 +467,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         mMap.setOnMapLongClickListener(this);
         mMap.getUiSettings().setRotateGesturesEnabled(false);
         mMap.getUiSettings().setMapToolbarEnabled(false);
+        mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
+            @Override
+            public void onMarkerDragStart(@NonNull Marker marker) {}
+            @Override
+            public void onMarkerDragEnd(@NonNull Marker marker) {}
+            @Override
+            public void onMarkerDrag(@NonNull Marker marker) {}
+        });
         startTimer();
     }
 

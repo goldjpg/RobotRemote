@@ -26,6 +26,9 @@ public class Connection {
             = MediaType.parse("application/json; charset=utf-8");
     int routepos;
     List<String> robotLogMessages = new ArrayList<>();
+    double latOffset = 0;
+    double lonOffset = 0;
+    boolean firstOffset = true;
 
     public Connection(){
         client = new OkHttpClient();
@@ -49,9 +52,12 @@ public class Connection {
     }
 
     public void getLatestPos() throws IOException, JSONException, ServerErrorException {
+        JSONObject outJson = new JSONObject();
+        outJson.put("raw", true);
+        RequestBody body = RequestBody.create(outJson.toString(), JSON);
         Request request = new Request.Builder()
                 .url(robotUrl + "getPosition")
-                .get()
+                .post(body)
                 .build();
         Response resp = client.newCall(request).execute();
         if(resp.code() == 200){
@@ -78,6 +84,26 @@ public class Connection {
         if(resp.code() != 200){
             throw new ServerErrorException();
         }
+    }
+
+    public void setOffset(double latOffset, double lonOffset) throws IOException, ServerErrorException, JSONException {
+        JSONObject outJson = new JSONObject();
+        JSONArray outOffset = new JSONArray();
+        outOffset.put(latOffset);
+        outOffset.put(lonOffset);
+        outJson.put("offset", outOffset);
+        outJson.put("fetchDeclination", firstOffset);
+        RequestBody body = RequestBody.create(outJson.toString(), JSON);
+        Request request = new Request.Builder()
+                .url(robotUrl + "setOffset")
+                .post(body)
+                .build();
+        Response resp = client.newCall(request).execute();
+        if(resp.code() != 200){
+            throw new ServerErrorException();
+        }
+        this.latOffset = latOffset;
+        this.lonOffset = lonOffset;
     }
 
     public void stopRoute() throws IOException, JSONException, ServerErrorException {
