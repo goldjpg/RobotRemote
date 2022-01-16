@@ -328,9 +328,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                             double lonOffsetSum = 0;
                             for(double[] values:calculatedOffsets){
                                 latOffsetSum += values[0];
-                                lonOffsetSum += values[0];
+                                lonOffsetSum += values[1];
                             }
-                            MainActivity.con.setOffset(latOffsetSum/calculatedOffsets.size(), lonOffsetSum/calculatedOffsets.size());
+                            MainActivity.con.setOffset(latOffsetSum/(double)calculatedOffsets.size(), lonOffsetSum/(double)calculatedOffsets.size());
                             MapActivity.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
