@@ -35,6 +35,8 @@ public class MainActivity extends AppCompatActivity {
         Settings.myprefs = getSharedPreferences("config", MODE_PRIVATE);
         Settings.loadSettings();
         con = new Connection();
+        con.latOffset = Settings.lastRobotLatOffset;
+        con.lonOffset = Settings.lastRobotLonOffset;
         robotIp = findViewById(R.id.robot_ip_input);
         connectBut = findViewById(R.id.connect_button);
         connectBut.setOnClickListener(new View.OnClickListener() {

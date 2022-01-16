@@ -12,6 +12,8 @@
         android:layout_height="0dp"
         android:layout_marginEnd="4dp"
         android:layout_marginBottom="10dp"
+        android:stackFromBottom="true"
+        android:transcriptMode="normal"
         app:layout_constraintBottom_toTopOf="@+id/logClearButton"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

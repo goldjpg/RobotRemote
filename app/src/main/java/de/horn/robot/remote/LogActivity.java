@@ -3,7 +3,9 @@ package de.horn.robot.remote;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -22,6 +24,7 @@ public class LogActivity extends AppCompatActivity {
     private int lastSize = 0;
     private Timer timer = null;
     private ArrayAdapter<String> myAdapter;
+    private Button clearLogButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,6 +36,14 @@ public class LogActivity extends AppCompatActivity {
         myAdapter = new ArrayAdapter<String>(this, R.layout.log_item_view, R.id.logTextView, startList);
         myAdapter.setNotifyOnChange(false);
         logView.setAdapter(myAdapter);
+        clearLogButton = findViewById(R.id.logClearButton);
+        clearLogButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                MainActivity.con.robotLogMessages.clear();
+                updateItemList();
+            }
+        });
         if (timer == null) {
             timer = new Timer();
         }
@@ -56,6 +67,7 @@ public class LogActivity extends AppCompatActivity {
                 myAdapter.add(s);
             }
             myAdapter.notifyDataSetChanged();
+            lastSize = MainActivity.con.robotLogMessages.size();
         }
     }
 

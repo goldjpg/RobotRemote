@@ -7,7 +7,10 @@ import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -70,7 +73,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private View offsetView;
     private UserMode currentUiMode;
     private Marker robotOffsetMarker = null;
-
+    private ProgressDialog myActionProgress;
+    private boolean didAskForCalibration = false;
 
     private enum UserMode{
         editMode, playMode, setRobotOffset
@@ -81,10 +85,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_map);
-
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
+        setTitle(R.string.app_name);
 
         vibrator  = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
@@ -142,44 +143,68 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         playBut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                MainActivity.backgroundExecutor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        if(route.size() > 1){
-                            try {
-                                MainActivity.con.postRoute(route);
-                                MapActivity.this.runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        setCurrentUiMode(UserMode.playMode);
-                                        Toast.makeText(MapActivity.this, "Route sent successfully.", Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                                MapActivity.this.runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Toast.makeText(MapActivity.this, "Failed to send route.", Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-                            }
-                        }else{
-                            MapActivity.this.runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    Toast.makeText(MapActivity.this, "You have to specify at least two route elements.", Toast.LENGTH_SHORT).show();
-                                }
-                            });
+                if(!didAskForCalibration){
+                    AlertDialog.Builder builder = new AlertDialog.Builder(MapActivity.this);
+                    builder.setMessage("It's recommended to calibrate the robot before playing a route.");
+                    builder.setTitle("Robot not calibrated");
+                    builder.setCancelable(false);
+                    builder.setNegativeButton(("cancel"), new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.cancel();
                         }
+                    });
+                    builder.setPositiveButton("calibrate", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            enterCalibrationMode();
+                        }
+                    });
+                    AlertDialog alert = builder.create();
+                    alert.show();
+                    didAskForCalibration = true;
+                }else{
+                    if(route.size() > 1) {
+                        startLoadingAction("Sending route...");
+                        MainActivity.backgroundExecutor.submit(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (route.size() > 1) {
+                                    try {
+                                        MainActivity.con.postRoute(route);
+                                        MapActivity.this.runOnUiThread(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                setCurrentUiMode(UserMode.playMode);
+                                                endLoadingAction("");
+                                            }
+                                        });
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                        MapActivity.this.runOnUiThread(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                endLoadingAction("Failed to send route.");
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                    }else{
+                        MapActivity.this.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Toast.makeText(MapActivity.this, "You have to specify at least two route points.", Toast.LENGTH_SHORT).show();
+                            }
+                        });
                     }
-                });
+                }
             }
         });
         startBut = findViewById(R.id.startBut);
         startBut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                startLoadingAction("Starting route...");
                 MainActivity.backgroundExecutor.submit(new Runnable() {
                     @Override
                     public void run() {
@@ -188,7 +213,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                             MapActivity.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    Toast.makeText(MapActivity.this, "Route started successfully.", Toast.LENGTH_SHORT).show();
+                                    endLoadingAction("");
                                 }
                             });
                         } catch (Exception e) {
@@ -196,7 +221,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                             MapActivity.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    Toast.makeText(MapActivity.this, "Failed to start route.", Toast.LENGTH_SHORT).show();
+                                    endLoadingAction("Failed to start route.");
                                 }
                             });
                         }
@@ -208,6 +233,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         restartBut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                startLoadingAction("Restarting route...");
                 MainActivity.backgroundExecutor.submit(new Runnable() {
                     @Override
                     public void run() {
@@ -216,7 +242,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                             MapActivity.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    Toast.makeText(MapActivity.this, "Route restarted successfully.", Toast.LENGTH_SHORT).show();
+                                    endLoadingAction("");
                                 }
                             });
                         } catch (Exception e) {
@@ -224,7 +250,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                             MapActivity.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    Toast.makeText(MapActivity.this, "Failed to restarted route.", Toast.LENGTH_SHORT).show();
+                                    endLoadingAction("Failed to restart route.");
                                 }
                             });
                         }
@@ -236,6 +262,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         pauseBut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                startLoadingAction("Stopping route...");
                 MainActivity.backgroundExecutor.submit(new Runnable() {
                     @Override
                     public void run() {
@@ -244,7 +271,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                             MapActivity.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    Toast.makeText(MapActivity.this, "Route stopped successfully.", Toast.LENGTH_SHORT).show();
+                                    endLoadingAction("");
                                 }
                             });
                         } catch (Exception e) {
@@ -252,7 +279,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                             MapActivity.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    Toast.makeText(MapActivity.this, "Failed stop route.", Toast.LENGTH_SHORT).show();
+                                    endLoadingAction("Failed to stop route.");
                                 }
                             });
                         }
@@ -272,34 +299,45 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
-                        MapActivity.this.runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                setCurrentUiMode(UserMode.editMode);
-                            }
-                        });
                     }
                 });
+                setCurrentUiMode(UserMode.editMode);
             }
         });
         setOffsetBut = findViewById(R.id.setOffsetBut);
         setOffsetBut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                startLoadingAction("Calculating offset. This will take about 5 seconds.");
                 LatLng markerPos = robotOffsetMarker.getPosition();
-                double newLatOffset = markerPos.latitude - MainActivity.con.lastRobotLat;
-                double newLonOffset = markerPos.longitude - MainActivity.con.lastRobotLon;
                 MainActivity.backgroundExecutor.submit(new Runnable() {
                     @Override
                     public void run() {
                         try {
-                            MainActivity.con.setOffset(newLatOffset, newLonOffset);
+                            List<double[]> calculatedOffsets = new ArrayList<>();
+                            int sleepSeconds = 0;
+                            while (sleepSeconds <= 5){
+                                MainActivity.con.getLatestPos();
+                                double newLatOffset = markerPos.latitude - MainActivity.con.lastRobotLat;
+                                double newLonOffset = markerPos.longitude - MainActivity.con.lastRobotLon;
+                                calculatedOffsets.add(new double[]{newLatOffset, newLonOffset});
+                                Thread.sleep(1000);
+                                sleepSeconds += 1;
+                            }
+                            double latOffsetSum = 0;
+                            double lonOffsetSum = 0;
+                            for(double[] values:calculatedOffsets){
+                                latOffsetSum += values[0];
+                                lonOffsetSum += values[0];
+                            }
+                            MainActivity.con.setOffset(latOffsetSum/calculatedOffsets.size(), lonOffsetSum/calculatedOffsets.size());
                             MapActivity.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    Toast.makeText(MapActivity.this, "Offset set successfully.", Toast.LENGTH_SHORT).show();
+                                    endLoadingAction("");
                                     robotOffsetMarker.setVisible(false);
                                     setCurrentUiMode(UserMode.editMode);
+                                    renderRoute();
                                 }
                             });
                         } catch (Exception e) {
@@ -307,7 +345,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                             MapActivity.this.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    Toast.makeText(MapActivity.this, "Failed to set offset.", Toast.LENGTH_SHORT).show();
+                                    endLoadingAction("Failed to set offset.");
                                 }
                             });
                         }
@@ -316,6 +354,32 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         });
         setCurrentUiMode(UserMode.editMode);
+        startTimer();
+        startLoadingAction("Loading map...");
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        moveTaskToBack(true);
+    }
+
+    private void startLoadingAction(String message){
+        myActionProgress = new ProgressDialog(MapActivity.this);
+        myActionProgress.setTitle("Loading");
+        myActionProgress.setMessage(message);
+        myActionProgress.setCancelable(false);
+        myActionProgress.show();
+    }
+
+    private void endLoadingAction(String errorMessage){
+        myActionProgress.hide();
+        if(!errorMessage.equals("")){
+            Toast.makeText(MapActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void setCurrentUiMode(UserMode newMode){
@@ -323,10 +387,13 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         playView.setVisibility(View.GONE);
         offsetView.setVisibility(View.GONE);
         if(newMode == UserMode.editMode){
+            setTitle("Edit Mode");
             recordingView.setVisibility(View.VISIBLE);
         }else if(newMode == UserMode.playMode){
+            setTitle("Play Mode");
             playView.setVisibility(View.VISIBLE);
         }else if(newMode == UserMode.setRobotOffset){
+            setTitle("Offset Mode");
             offsetView.setVisibility(View.VISIBLE);
         }
         currentUiMode = newMode;
@@ -344,14 +411,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             startActivity(new Intent(this, LogActivity.class));
         }else if(item.getItemId() == R.id.action_calibration_mode){
             if(currentUiMode == UserMode.editMode && !recording && mMap != null){
-                LatLng markerPos = new LatLng(MainActivity.con.lastRobotLat + MainActivity.con.latOffset,MainActivity.con.lastRobotLon + MainActivity.con.lonOffset);
-                if(robotOffsetMarker == null){
-                    robotOffsetMarker = mMap.addMarker(new MarkerOptions().position(markerPos).draggable(true));
-                }else{
-                    robotOffsetMarker.setPosition(markerPos);
-                    robotOffsetMarker.setVisible(true);
-                }
-                setCurrentUiMode(UserMode.setRobotOffset);
+                enterCalibrationMode();
             }else{
                 Toast.makeText(MapActivity.this, "You have to be in Edit-Mode to use this feature.", Toast.LENGTH_SHORT).show();
             }
@@ -361,16 +421,33 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         return true;
     }
 
+    private void enterCalibrationMode(){
+        LatLng markerPos = new LatLng(MainActivity.con.lastRobotLat + MainActivity.con.latOffset,MainActivity.con.lastRobotLon + MainActivity.con.lonOffset);
+        if(robotOffsetMarker == null){
+            robotOffsetMarker = mMap.addMarker(new MarkerOptions().position(markerPos).draggable(true));
+        }else{
+            robotOffsetMarker.setPosition(markerPos);
+            robotOffsetMarker.setVisible(true);
+        }
+        setCurrentUiMode(UserMode.setRobotOffset);
+        renderRoute();
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        try {
+            timer.cancel();
+            timer = null;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         Settings.saveSettings();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        startTimer();
     }
 
     @Override
@@ -383,12 +460,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             Settings.lastZoom = mMap.getCameraPosition().zoom;
         }
         Settings.saveSettings();
-        try {
-            timer.cancel();
-            timer = null;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     private void startTimer() {
@@ -428,11 +499,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private void renderRoute(){
         List<LatLng> plannedPoints = new ArrayList<>();
         List<LatLng> finishedPoints = new ArrayList<>();
-        if(currentUiMode == UserMode.editMode || currentUiMode == UserMode.playMode){
-            for(int i=0;i<route.size();i++){
-                RouteElement cur = route.get(i);
-                if(cur.mymarker == null){
-                    cur.mymarker = mMap.addMarker(new MarkerOptions().position(new LatLng(cur.lat,cur.lon)));
+        for(int i=0;i<route.size();i++){
+            RouteElement cur = route.get(i);
+            if(cur.mymarker == null){
+                cur.mymarker = mMap.addMarker(new MarkerOptions().position(new LatLng(cur.lat,cur.lon)));
+            }
+            if(currentUiMode == UserMode.editMode || currentUiMode == UserMode.playMode){
+                if(!cur.mymarker.isVisible()){
+                    cur.mymarker.setVisible(true);
                 }
                 if(i < MainActivity.con.routepos && currentUiMode == UserMode.playMode){
                     finishedPoints.add(new LatLng(cur.lat, cur.lon));
@@ -441,6 +515,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     finishedPoints.add(new LatLng(cur.lat, cur.lon));
                 }else{
                     plannedPoints.add(new LatLng(cur.lat, cur.lon));
+                }
+            }else{
+                if(cur.mymarker.isVisible()){
+                    cur.mymarker.setVisible(false);
                 }
             }
         }
@@ -458,9 +536,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
         mMap.setMyLocationEnabled(true);
+        mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
         Bitmap oldMarker = BitmapFactory.decodeResource(getResources(), R.drawable.robotmarker);
         Bitmap smallMarker = Bitmap.createScaledBitmap(oldMarker, 100, 100, false);
-        robot = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.fromBitmap(smallMarker)).position(new LatLng(Settings.lastRobotLat,Settings.lastRobotLon)).title("Robot"));
+        robot = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.fromBitmap(smallMarker)).position(new LatLng(Settings.lastRobotLat + MainActivity.con.latOffset,Settings.lastRobotLon+ MainActivity.con.lonOffset)));
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(Settings.lastLat,Settings.lastLon), Settings.lastZoom));
         planedRoute = mMap.addPolyline(new PolylineOptions().clickable(false).color(Color.RED));
         finishedRoute = mMap.addPolyline(new PolylineOptions().clickable(false).color(Color.GREEN));
@@ -476,6 +555,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             public void onMarkerDrag(@NonNull Marker marker) {}
         });
         startTimer();
+        endLoadingAction("");
     }
 
     @Override

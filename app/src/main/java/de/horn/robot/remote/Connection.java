@@ -104,6 +104,8 @@ public class Connection {
         }
         this.latOffset = latOffset;
         this.lonOffset = lonOffset;
+        Settings.lastRobotLatOffset = (float) this.latOffset;
+        Settings.lastRobotLonOffset = (float) this.lonOffset;
     }
 
     public void stopRoute() throws IOException, JSONException, ServerErrorException {

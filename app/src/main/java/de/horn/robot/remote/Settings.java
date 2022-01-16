@@ -11,6 +11,8 @@ public class Settings {
     static float lastRobotLat;
     static float lastRobotLon;
     static float lastZoom;
+    static float lastRobotLatOffset;
+    static float lastRobotLonOffset;
 
     static void loadSettings(){
         lastIp = myprefs.getString("lastIp", "0.0.0.0");
@@ -18,6 +20,8 @@ public class Settings {
         lastLon = myprefs.getFloat("lastLon", 0f);
         lastRobotLat = myprefs.getFloat("lastRobotLat", 0f);
         lastRobotLon = myprefs.getFloat("lastRobotLon", 0f);
+        lastRobotLatOffset = myprefs.getFloat("lastRobotLatOffset", 0f);
+        lastRobotLonOffset = myprefs.getFloat("lastRobotLonOffset", 0f);
         lastZoom = myprefs.getFloat("lastZoom", 0f);
     }
 
@@ -27,6 +31,8 @@ public class Settings {
                 .putFloat("lastLon", lastLon)
                 .putFloat("lastRobotLat", lastRobotLat)
                 .putFloat("lastRobotLon", lastRobotLon)
+                .putFloat("lastRobotLatOffset", lastRobotLatOffset)
+                .putFloat("lastRobotLonOffset", lastRobotLonOffset)
                 .putFloat("lastZoom", lastZoom)
                 .apply();
     }
